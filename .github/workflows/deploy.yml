@@ -60,7 +60,12 @@ jobs:
           proxy_key: ${{ secrets.SSH_KEY }}
           script: |
             cd /home/ubuntu/n8n-project/
+
+            # Dar permiso de ejecución al script antes de levantar el contenedor
+            chmod +x infra/init-ollama.sh
+
             mkdir -p ollama_data
+            
             # Usamos rutas relativas desde la raíz del proyecto para mayor limpieza
             docker compose -f infra/docker-compose.server-ollama.yml down
             docker compose -f infra/docker-compose.server-ollama.yml pull
