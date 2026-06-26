@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    restart: always
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      # Esto ayuda a que n8n sepa su URL pública cuando añadamos Nginx después
+      - WEBHOOK_URL=http://tu-ip-publica:5678/
+    volumes:
+      - ~/.n8n:/home/node/.n8n
