@@ -71,5 +71,16 @@ jobs:
           proxy_username: ${{ secrets.SSH_USER }}
           proxy_key: ${{ secrets.SSH_KEY }}
           script: |
-            cd /home/ubuntu/ai-agent/
-            docker compose -f infra/docker-compose.server-ollama.yml up -d
+            # 1. Navegar a la carpeta del proyecto
+            cd /home/ubuntu/n8n-project/
+
+            # 2. Asegurar que la carpeta de datos existe
+            mkdir -p /home/ubuntu/n8n-project/ollama_data
+
+            # 3. Detener, actualizar y levantar Ollama
+            docker compose -f /home/ubuntu/n8n-project/infra/docker-compose.server-ollama.yml down
+            docker compose -f /home/ubuntu/n8n-project/infra/docker-compose.server-ollama.yml pull
+            docker compose -f /home/ubuntu/n8n-project/infra/docker-compose.server-ollama.yml up -d
+
+
+            

@@ -5,7 +5,7 @@ services:
     ports:
       - "11434:11434"
     volumes:
-      - ./ollama_data:/root/.ollama
+      - /home/ubuntu/n8n-project/ollama_data:/root/.ollama
     restart: always
     deploy:
       resources:
