@@ -5,12 +5,13 @@ services:
     ports:
       - "11434:11434"
     volumes:
+      # Usa rutas consistentes en tu servidor Ubuntu
       - /home/ubuntu/n8n-project/ollama_data:/root/.ollama
-      - /home/usuario/proyecto/infra/init-ollama.sh:/init-ollama.sh
+      - /home/ubuntu/n8n-project/infra/init-ollama.sh:/init-ollama.sh
 
     # Usamos formato de lista para evitar errores de parseo
-    entrypoint: ["/bin/bash", "-c", "/bin/ollama serve & pid=$!; sleep 5; echo 'Descargando modelo...'; /bin/ollama pull llama3.1; wait $pid"]
-
+    entrypoint: ["/bin/bash", "/init-ollama.sh"]
+    
     restart: always
     deploy:
       resources:

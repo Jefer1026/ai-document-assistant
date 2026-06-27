@@ -3,4 +3,4 @@
 __pycache__/
 .DS_Store
 infra/ollama_data/
-infra/ollama_data/
+infra/n8n_data/

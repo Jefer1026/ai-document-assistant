@@ -11,15 +11,25 @@ services:
       - N8N_HOST=localhost
       - N8N_PORT=5678
       - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://localhost:5678/
+    networks:
+      - ai-network
+    restart: always
 
   ollama:
     image: ollama/ollama:latest
     container_name: ollama
     ports:
       - "11434:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0 
     volumes:
       - ./ollama_data:/root/.ollama
       - ./init-ollama.sh:/init-ollama.sh # Montamos el script
-    entrypoint: ["/bin/bash", "/init-ollama.sh"] # Ejecutamos el script
+    entrypoint: ["/bin/bash", "/init-ollama.sh"]
     restart: always
+    
+networks:
+  ai-network:
+    driver: bridge
     
