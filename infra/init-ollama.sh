@@ -1,18 +1,25 @@
 #!/bin/bash
-# Iniciar el servicio en segundo plano
-ollama serve & 
 
-# Esperar a que el puerto 11434 responda usando /dev/tcp
+# Iniciar Ollama en segundo plano
+ollama serve &
+PID=$!
+
 echo "Esperando que Ollama inicie..."
 
-# Esto intenta abrir una conexión TCP al puerto 11434
+# Bucle de espera
 while ! (echo > /dev/tcp/127.0.0.1/11434) >/dev/null 2>&1; do
   sleep 2
 done
 
-echo "Ollama listo. Descargando modelo..."
-ollama pull llama3.1
+# Verificación inteligente del modelo
+echo "Verificando si el modelo llama3.1 está instalado..."
+if ollama list | grep -q "llama3.1"; then
+    echo "✅ El modelo llama3.1 ya está disponible localmente."
+else
+    echo "⏳ Descargando modelo llama3.1 (esto puede tardar unos minutos)..."
+    ollama pull llama3.1
+    echo "✅ Modelo descargado correctamente."
+fi
 
 # Mantener el proceso principal activo
-wait $!
-EOF
+wait $PID
