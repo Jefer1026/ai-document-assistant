@@ -27,7 +27,21 @@ services:
       - ./ollama_data:/root/.ollama
       - ./init-ollama.sh:/init-ollama.sh # Montamos el script
     entrypoint: ["/bin/bash", "/init-ollama.sh"]
+    networks:
+      - ai-network
     restart: always
+
+  agente-python:
+    build: 
+      context: ../agent
+    container_name: agente-python
+    volumes:
+      - ../agent:/app
+    networks:
+      - ai-network
+    depends_on:
+      - ollama
+
     
 networks:
   ai-network:
