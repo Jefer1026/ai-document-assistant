@@ -4,3 +4,12 @@ __pycache__/
 .DS_Store
 infra/ollama_data/
 infra/n8n_data/
+
+venv/
+.venv/
+env/
+chroma_db/
+documentos/
+.git/
+.vscode/
+*.log

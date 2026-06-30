@@ -1,33 +1,76 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-import ollama # Asegúrate de que esto sea la librería oficial
+import ollama
+import chromadb
+from chromadb.utils import embedding_functions
+from pypdf import PdfReader
+import os
 
 app = FastAPI()
-
-# --- AQUÍ ESTÁ EL CAMBIO ---
-# Configuramos el cliente para que busque el servicio 'ollama' en la red
 client = ollama.Client(host='http://ollama:11434')
+
+# --- CONFIGURACIÓN RAG ---
+class AgentRAG:
+    def __init__(self, docs_path="/app/documents"):
+        self.docs_path = docs_path
+        self.client = chromadb.PersistentClient(path="./chroma_db")
+        self.collection = self.client.get_or_create_collection(name="documentos")
+        
+        # Escaneo automático al iniciar
+        self.escanear_documentos_locales()
+
+    def escanear_documentos_locales(self):
+        """Busca PDFs en la carpeta montada y los procesa si no existen ya."""
+        if not os.path.exists(self.docs_path):
+            print(f"Carpeta {self.docs_path} no encontrada.")
+            return
+
+        for archivo in os.listdir(self.docs_path):
+            if archivo.endswith(".pdf"):
+                ruta_completa = os.path.join(self.docs_path, archivo)
+                print(f"Procesando archivo automático: {archivo}")
+                self.procesar_pdf(ruta_completa)
+
+    def procesar_pdf(self, file_path):
+        try:
+            reader = PdfReader(file_path)
+            for i, page in enumerate(reader.pages):
+                text = page.extract_text()
+                if text.strip():
+                    # Usamos el nombre del archivo + numero de pagina como ID único
+                    page_id = f"{os.path.basename(file_path)}_page_{i}"
+                    self.collection.add(documents=[text], ids=[page_id])
+        except Exception as e:
+            print(f"Error procesando {file_path}: {e}")
+
+    def consultar(self, pregunta):
+        resultados = self.collection.query(query_texts=[pregunta], n_results=2)
+        return "\n".join(resultados['documents'][0]) if resultados['documents'][0] else ""
+
+rag = AgentRAG()
 
 class AgentChat:
     def __init__(self, model="llama3.1"):
         self.model = model
-        self.history = [
-            {"role": "system", "content": "Eres un asistente de IA útil y directo. Responde a las preguntas del usuario de forma breve y precisa."}
-        ]
+        self.history = [{"role": "system", "content": "Eres un asistente experto. Responde preguntas basándote en el contexto del documento proporcionado."}]
 
     def responder(self, user_input):
-        self.history.append({"role": "user", "content": user_input})
+        # 1. Obtenemos contexto del PDF
+        contexto = rag.consultar(user_input)
         
-        # Usamos el cliente configurado
+        # 2. Construimos el mensaje con contexto
+        prompt = f"Contexto relevante: {contexto}\n\nPregunta: {user_input}"
+        self.history.append({"role": "user", "content": prompt})
+        
         response = client.chat(model=self.model, messages=self.history)
-        
         content = response['message']['content']
         self.history.append({"role": "assistant", "content": content})
         return content
-# ---------------------------
 
 agente = AgentChat()
 
+# --- ENDPOINTS ---
 class ChatRequest(BaseModel):
     message: str
 
@@ -35,3 +78,14 @@ class ChatRequest(BaseModel):
 async def chat(req: ChatRequest):
     respuesta = agente.responder(req.message)
     return {"response": respuesta}
+
+@app.post("/upload")
+async def upload_pdf(file: UploadFile = File(...)):
+    # Guardamos temporalmente para procesar
+    temp_path = f"temp_{file.filename}"
+    with open(temp_path, "wb") as buffer:
+        buffer.write(await file.read())
+    
+    rag.procesar_pdf(temp_path)
+    os.remove(temp_path) # Limpiamos
+    return {"status": "Documento procesado"}

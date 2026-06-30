@@ -34,9 +34,13 @@ services:
   agente-python:
     build: 
       context: ../agent
+      dockerfile: Dockerfile
+
     container_name: agente-python
     volumes:
-      - ../agent:/app
+      - ../agent:/app        # Mapeo de desarrollo
+      - ../agent/documents:/app/documents
+      - ../agent/chroma_db:/app/chroma_db
     networks:
       - ai-network
     depends_on:
