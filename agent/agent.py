@@ -53,21 +53,43 @@ rag = AgentRAG()
 class AgentChat:
     def __init__(self, model="llama3.1"):
         self.model = model
-        self.history = [{"role": "system", "content": "Eres un asistente experto. Responde preguntas basándote en el contexto del documento proporcionado."}]
+        self.history = [{
+            "role": "system", 
+            "content": """Eres un asistente eficiente y directo.
+            - Si el 'Contexto del documento' es relevante, responde basándote exclusivamente en él.
+            - Si el 'Contexto del documento' no es útil o es irrelevante para la pregunta, responde directamente usando tu conocimiento general.
+            - REGLA DE ORO: Nunca menciones que estás usando el documento o tu conocimiento general. No des explicaciones sobre tu proceso interno.
+            - Sé breve, amable y conciso. No rellenes con texto innecesario."""
+        }]
 
     def responder(self, user_input):
-        # 1. Obtenemos contexto del PDF
-        contexto = rag.consultar(user_input)
+        # 1. Obtenemos contexto solo si es necesario (lógica de umbral)
+        contexto = ""
+        if len(user_input) >= 20:
+            contexto = rag.consultar(user_input)
         
-        # 2. Construimos el mensaje con contexto
-        prompt = f"Contexto relevante: {contexto}\n\nPregunta: {user_input}"
-        self.history.append({"role": "user", "content": prompt})
+        # 2. Construimos el prompt temporal (no lo guardamos en el historial aún)
+        if contexto and len(contexto.strip()) > 0:
+            prompt_para_modelo = f"Contexto del documento: {contexto}\n\nPregunta: {user_input}"
+        else:
+            prompt_para_modelo = user_input
+            
+        # 3. Guardamos en el historial SOLO la pregunta limpia (sin el contexto pegado)
+        # Esto hace que la memoria del chat sea natural y no técnica
+        self.history.append({"role": "user", "content": user_input})
         
-        response = client.chat(model=self.model, messages=self.history)
+        # 4. Creamos una copia temporal de los mensajes para la llamada al LLM
+        # Esto incluye el System Prompt + Historial + Prompt con contexto actual
+        mensajes_temporales = self.history[:-1] + [{"role": "user", "content": prompt_para_modelo}]
+        
+        # 5. LLAMADA AL LLM
+        response = client.chat(model=self.model, messages=mensajes_temporales)
         content = response['message']['content']
+        
+        # 6. Guardamos solo la respuesta del asistente en el historial
         self.history.append({"role": "assistant", "content": content})
+        
         return content
-
 agente = AgentChat()
 
 # --- ENDPOINTS ---
