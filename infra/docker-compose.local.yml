@@ -31,12 +31,12 @@ services:
       - ai-network
     restart: always
 
-  agente-python:
+  python-agent:
     build: 
       context: ../agent
       dockerfile: Dockerfile
 
-    container_name: agente-python
+    container_name: python-agent
     volumes:
       - ../agent:/app        # Mapeo de desarrollo
       - ../agent/documents:/app/documents
