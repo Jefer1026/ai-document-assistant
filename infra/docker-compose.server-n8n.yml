@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   n8n:
     image: docker.n8n.io/n8nio/n8n:latest
@@ -11,7 +9,26 @@ services:
       - N8N_PORT=5678
       - N8N_PROTOCOL=http
       - NODE_ENV=production
-      # Esto ayuda a que n8n sepa su URL pública cuando añadamos Nginx después
       - WEBHOOK_URL=${WEBHOOK_URL}
     volumes:
-      - ~/.n8n:/home/node/.n8n
+      - /home/ubuntu/n8n_data:/home/node/.n8n
+    networks:
+      - ai-network
+
+  python-agent:
+    build: 
+      context: ../agent 
+      dockerfile: Dockerfile
+    container_name: python-agent
+    network_mode: "host"
+    volumes:
+      - /home/ubuntu/agent/documents:/app/documents
+      - /home/ubuntu/agent/chroma_db:/app/chroma_db
+    environment:
+      - OLLAMA_BASE_URL=http://10.0.1.53:11434
+    restart: always
+
+# Esta sección es la que faltaba para que n8n no diera error
+networks:
+  ai-network:
+    driver: bridge

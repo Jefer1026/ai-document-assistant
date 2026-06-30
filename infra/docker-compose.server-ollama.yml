@@ -4,6 +4,8 @@ services:
     container_name: ollama
     ports:
       - "11434:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0
     volumes:
       # Usa rutas consistentes en tu servidor Ubuntu
       - /home/ubuntu/n8n-project/ollama_data:/root/.ollama

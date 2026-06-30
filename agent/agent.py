@@ -3,12 +3,18 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import ollama
 import chromadb
-from chromadb.utils import embedding_functions
 from pypdf import PdfReader
 import os
+import httpx
 
 app = FastAPI()
-client = ollama.Client(host='http://ollama:11434')
+
+# Define la dirección explícitamente
+ollama_url = os.getenv("OLLAMA_BASE_URL", "http://10.0.1.53:11434")
+
+# Inicializa el cliente forzando el host
+client = ollama.Client(host=ollama_url)
+
 
 # --- CONFIGURACIÓN RAG ---
 class AgentRAG:
@@ -79,6 +85,8 @@ rag = AgentRAG()
 class AgentChat:
     def __init__(self, model="llama3.1"):
         self.model = model
+        self.ollama_url = os.getenv("OLLAMA_BASE_URL", "http://10.0.1.53:11434")
+        
         self.history = [{
             "role": "system", 
             "content": """Eres Jeferson Oyola Garcia. Tu objetivo es responder preguntas de forma inmediata y precisa.
@@ -89,32 +97,28 @@ class AgentChat:
         }]
 
     def answer(self, user_input):
-        # 1. Obtenemos contexto solo si es necesario (lógica de umbral)
-        contexto = ""
-        if len(user_input) >= 20:
-            contexto = rag.query_data(user_input)
+        # 1. Obtenemos contexto
+        contexto = rag.query_data(user_input)
+        prompt_para_modelo = f"Contexto: {contexto}\n\nPregunta: {user_input}" if contexto else user_input
         
-        # 2. Construimos el prompt temporal (no lo guardamos en el historial aún)
-        if contexto and len(contexto.strip()) > 0:
-            prompt_para_modelo = f"Contexto del documento: {contexto}\n\nPregunta: {user_input}"
-        else:
-            prompt_para_modelo = user_input
-            
-        # 3. Guardamos en el historial SOLO la pregunta limpia (sin el contexto pegado)
-        # Esto hace que la memoria del chat sea natural y no técnica
         self.history.append({"role": "user", "content": user_input})
-        
-        # 4. Creamos una copia temporal de los mensajes para la llamada al LLM
-        # Esto incluye el System Prompt + Historial + Prompt con contexto actual
         mensajes_temporales = self.history[:-1] + [{"role": "user", "content": prompt_para_modelo}]
+               
         
-        # 5. LLAMADA AL LLM
-        response = client.chat(model=self.model, messages=mensajes_temporales)
-        content = response['message']['content']
+        payload = {
+            "model": self.model,
+            "messages": mensajes_temporales,
+            "stream": False
+        }
         
-        # 6. Guardamos solo la respuesta del asistente en el historial
+        # Petición HTTP pura con httpx
+        with httpx.Client(timeout=60.0) as http_client:
+            response = http_client.post(f"{self.ollama_url}/api/chat", json=payload)
+            response.raise_for_status()
+            data = response.json()
+            content = data['message']['content']
+        
         self.history.append({"role": "assistant", "content": content})
-        
         return content
 agent = AgentChat()
 
@@ -122,10 +126,18 @@ agent = AgentChat()
 class ChatRequest(BaseModel):
     message: str
 
+import traceback
+
 @app.post("/chat")
 async def chat(req: ChatRequest):
-    respuesta = agent.answer(req.message)
-    return {"response": respuesta}
+    try:
+        respuesta = agent.answer(req.message)
+        return {"response": respuesta}
+    except Exception as e:
+        # Esto imprimirá la traza completa (traceback) en tus logs
+        import traceback
+        traceback.print_exc() 
+        return {"error": str(e), "detalle": "Revisa los logs del contenedor para ver el traceback completo"}
 
 @app.post("/upload")
 async def upload_pdf(file: UploadFile = File(...)):
