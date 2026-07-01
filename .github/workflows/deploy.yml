@@ -21,12 +21,17 @@ jobs:
 
       - name: Deploy n8n Servidor A
         uses: appleboy/ssh-action@master
+        env:
+          
+          OLLAMA_URL: ${{ secrets.OLLAMA_URL }}
         with:
           host: ${{ secrets.SSH_HOST_A }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
             cd /home/ubuntu/n8n-project/
+
+            export OLLAMA_URL=$OLLAMA_URL
             docker compose -f infra/docker-compose.server-n8n.yml down
             docker compose -f infra/docker-compose.server-n8n.yml pull
             docker compose -f infra/docker-compose.server-n8n.yml up -d

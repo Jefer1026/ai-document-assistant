@@ -1,10 +1,13 @@
 #!/bin/bash
 
+export OLLAMA_HOST=0.0.0.0
 # Iniciar Ollama en segundo plano
+
+echo "Iniciando Ollama..."
 ollama serve &
 PID=$!
 
-echo "Esperando que Ollama inicie..."
+echo "Esperando que Ollama esté listo en el puerto 11434..."
 
 # Bucle de espera
 while ! (echo > /dev/tcp/127.0.0.1/11434) >/dev/null 2>&1; do

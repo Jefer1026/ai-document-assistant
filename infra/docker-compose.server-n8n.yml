@@ -25,7 +25,7 @@ services:
       - /home/ubuntu/agent/documents:/app/documents
       - /home/ubuntu/agent/chroma_db:/app/chroma_db
     environment:
-      - OLLAMA_BASE_URL=http://10.0.1.53:11434
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://10.0.1.53:11434}
     restart: always
 
 # Esta sección es la que faltaba para que n8n no diera error

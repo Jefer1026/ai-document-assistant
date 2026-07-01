@@ -8,7 +8,8 @@ from pypdf import PdfReader
 import os
 
 app = FastAPI()
-client = ollama.Client(host='http://10.0.1.53:11434')
+OLLAMA_URL = os.getenv("OLLAMA_BASE_URL", "http://10.0.1.53:11434")
+client = ollama.Client(host=OLLAMA_URL)
 
 # --- CONFIGURACIÓN RAG ---
 class AgentRAG:
