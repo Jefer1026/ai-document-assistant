@@ -138,3 +138,9 @@ async def upload_pdf(file: UploadFile = File(...)):
     rag.process_pdf(temp_path)
     os.remove(temp_path) # Limpiamos
     return {"status": "Documento procesado"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    # Escucha en todas las interfaces para permitir conexiones desde n8n
+    uvicorn.run(app, host="0.0.0.0", port=8000)
