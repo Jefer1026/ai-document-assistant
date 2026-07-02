@@ -15,73 +15,50 @@ client = ollama.Client(host=OLLAMA_URL)
 # --- CONFIGURACIÓN RAG ---
 class AgentRAG:
     def __init__(self, docs_path="/app/documents"):
-
-        self.ef = embedding_functions.DefaultEmbeddingFunction() # O mejor: SentenceTransformerEmbeddingFunction
-        self.collection = self.client.get_or_create_collection(
-            name="documentos", 
-            embedding_function=self.ef
-        )
-
         self.docs_path = docs_path
         self.client = chromadb.PersistentClient(path="./chroma_db")
         self.collection = self.client.get_or_create_collection(name="documentos")
         
         # Escaneo automático al iniciar
-        self.scan_local_documents()
+        self.escanear_documentos_locales()
 
-    def scan_local_documents(self):
+    def escanear_documentos_locales(self):
         """Busca PDFs en la carpeta montada y los procesa si no existen ya."""
         if not os.path.exists(self.docs_path):
             print(f"Carpeta {self.docs_path} no encontrada.")
             return
 
-        for file in os.listdir(self.docs_path):
-            if file.endswith(".pdf"):
-                ruta_completa = os.path.join(self.docs_path, file)
-                print(f"Procesando archivo automático: {file}")
-                self.process_pdf(ruta_completa)
+        for archivo in os.listdir(self.docs_path):
+            if archivo.endswith(".pdf"):
+                ruta_completa = os.path.join(self.docs_path, archivo)
+                print(f"Procesando archivo automático: {archivo}")
+                self.procesar_pdf(ruta_completa)
 
-    def process_pdf(self, file_path):
-        file_name = os.path.basename(file_path) # Ej: "politica_privacidad.pdf"
+    def procesar_pdf(self, file_path):
         try:
             reader = PdfReader(file_path)
+            print(f"DEBUG: Procesando {len(reader.pages)} páginas.")
             for i, page in enumerate(reader.pages):
                 text = page.extract_text()
-                if text.strip():
-                    page_id = f"{file_name}_page_{i}"
-                    # Guardamos el nombre del archivo en los metadatos
-                    self.collection.add(
-                        documents=[text], 
-                        ids=[page_id],
-                        metadatas=[{"source": file_name}] 
-                    )
+                # LOG: Verifica si realmente se está extrayendo texto
+                print(f"DEBUG: Página {i} extraída: {len(text)} caracteres.")
+                if text and text.strip():
+                    page_id = f"{os.path.basename(file_path)}_page_{i}"
+                    self.collection.add(documents=[text], ids=[page_id])
+                else:
+                    print(f"DEBUG: Página {i} estaba vacía o no es legible.")
         except Exception as e:
-            print(f"Error procesando {file_path}: {e}")
+            print(f"Error crítico procesando {file_path}: {e}")
 
-    def query_data(self, pregunta):
-        # 1. Realizamos la búsqueda
-        results = self.collection.query(query_texts=[pregunta], n_results=3)
+    def consultar(self, pregunta):
+        print(f"DEBUG: Consultando base de datos con: '{pregunta}'")
+        resultados = self.collection.query(query_texts=[pregunta], n_results=2)
         
-        # 2. Validación robusta: 
-        # Verificamos que 'documents' exista, tenga elementos y que 'metadatas' no sea None
-        docs = results.get('documents', [[]])[0]
-        metas = results.get('metadatas', [[]])[0]
+        # LOG: Verifica qué encontró la base de datos
+        documentos = resultados.get('documents', [[]])[0]
+        print(f"DEBUG: Resultados encontrados: {len(documentos)}")
         
-        if not docs:
-            return ""
-
-        contexto_final = ""
-        for i in range(len(docs)):
-            doc_text = docs[i]
-            # Si metadatas es None o no tiene el índice, manejamos el error con un valor por defecto
-            meta = metas[i] if metas and i < len(metas) else {}
-            # Si meta es None, lo convertimos a diccionario vacío
-            meta = meta if meta is not None else {}
-            
-            fuente = meta.get('source', 'desconocido')
-            contexto_final += f"\n[Fuente: {fuente}]\n{doc_text}"
-        
-        return contexto_final
+        return "\n".join(documentos) if documentos else ""
 
 rag = AgentRAG()
 
@@ -102,6 +79,12 @@ class AgentChat:
         contexto = ""
         if len(user_input) >= 20:
             contexto = rag.query_data(user_input)
+
+            # --- LOG DE SEGUIMIENTO ---
+            print(f"--- RAG DEBUG ---")
+            print(f"Pregunta: {user_input}")
+            print(f"Contexto recuperado: {contexto[:200]}...") # Imprime los primeros 200 caracteres
+            print(f"-------------------")
         
         # 2. Construimos el prompt temporal (no lo guardamos en el historial aún)
         if contexto and len(contexto.strip()) > 0:

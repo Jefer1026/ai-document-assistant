@@ -20,7 +20,11 @@ services:
       context: ../agent 
       dockerfile: Dockerfile
     container_name: python-agent
-    network_mode: "host"
+
+    networks:
+      - ai-network
+    ports:
+      - "8000:8000"
     volumes:
       - /home/ubuntu/agent/documents:/app/documents
       - /home/ubuntu/agent/chroma_db:/app/chroma_db
