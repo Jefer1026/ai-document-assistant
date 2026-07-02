@@ -15,6 +15,13 @@ client = ollama.Client(host=OLLAMA_URL)
 # --- CONFIGURACIÓN RAG ---
 class AgentRAG:
     def __init__(self, docs_path="/app/documents"):
+
+        self.ef = embedding_functions.DefaultEmbeddingFunction() # O mejor: SentenceTransformerEmbeddingFunction
+        self.collection = self.client.get_or_create_collection(
+            name="documentos", 
+            embedding_function=self.ef
+        )
+
         self.docs_path = docs_path
         self.client = chromadb.PersistentClient(path="./chroma_db")
         self.collection = self.client.get_or_create_collection(name="documentos")
